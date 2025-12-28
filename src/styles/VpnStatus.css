@@ -67,3 +67,57 @@
   color: var(--text-main);
   font-weight: 500;
 }
+
+.vpn-status-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.logs-panel {
+  padding: 16px;
+  border-radius: 12px;
+  background: rgba(10, 10, 10, 0.9);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  max-height: 300px;
+  display: flex;
+  flex-direction: column;
+}
+
+.logs-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: var(--primary);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.logs-content {
+  overflow-y: auto;
+  font-family: "Courier New", monospace;
+  font-size: 0.75rem;
+  color: #00ff41;
+  line-height: 1.4;
+}
+
+.logs-content pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+.logs-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.logs-content::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+}
+
+.logs-content::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 3px;
+}

@@ -36,6 +36,7 @@ pub async fn verify_api_key(
     let client = ApiClient::new();
     let response = client
         .verify_api_key(&api_key)
+        .await
         .map_err(|e| e.to_string())?;
 
     state.set_api_key(api_key);
@@ -50,7 +51,7 @@ pub async fn verify_api_key(
 #[tauri::command]
 pub async fn list_servers() -> Result<Vec<Server>, String> {
     let client = ApiClient::new();
-    let servers = client.list_servers().map_err(|e| e.to_string())?;
+    let servers = client.list_servers().await.map_err(|e| e.to_string())?;
 
     Ok(servers
         .into_iter()
@@ -86,6 +87,7 @@ pub async fn generate_config(
 
     let config_content = client
         .generate_config(&api_key, &request)
+        .await
         .map_err(|e| e.to_string())?;
 
     let manager = OpenVpnManager::new();
@@ -130,6 +132,12 @@ pub async fn delete_config(name: String) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub async fn save_credentials(config_name: String, credentials: String) -> Result<(), String> {
+    let manager = OpenVpnManager::new();
+    manager.save_credentials(&config_name, &credentials).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn connect_vpn(
     state: State<'_, AppState>,
     config_name: String,
@@ -139,15 +147,23 @@ pub async fn connect_vpn(
         .connect(&config_name)
         .map_err(|e| e.to_string())?;
 
-    state.set_connection(Some(VpnConnection {
-        config_name,
-        server: "unknown".to_string(),
-        connected_at: chrono::Utc::now().to_rfc3339(),
-        bytes_sent: 0,
-        bytes_received: 0,
-    }));
-
-    Ok(())
+    // Don't set connection here - let get_vpn_status check the process
+    // Wait a bit for OpenVPN to start
+    tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
+    
+    // Now check if process is actually running
+    if manager.is_connected() {
+        state.set_connection(Some(VpnConnection {
+            config_name,
+            server: "unknown".to_string(),
+            connected_at: chrono::Utc::now().to_rfc3339(),
+            bytes_sent: 0,
+            bytes_received: 0,
+        }));
+        Ok(())
+    } else {
+        Err("Failed to connect - OpenVPN process not running".to_string())
+    }
 }
 
 #[tauri::command]
@@ -162,5 +178,20 @@ pub async fn disconnect_vpn(state: State<'_, AppState>) -> Result<(), String> {
 
 #[tauri::command]
 pub async fn get_vpn_status(state: State<'_, AppState>) -> Result<Option<VpnConnection>, String> {
+    let manager = OpenVpnManager::new();
+    
+    // Check if OpenVPN process is actually running
+    if !manager.is_connected() {
+        // Process not running, clear state
+        state.set_connection(None);
+        return Ok(None);
+    }
+    
     Ok(state.get_connection())
+}
+
+#[tauri::command]
+pub async fn get_vpn_logs() -> Result<String, String> {
+    let manager = OpenVpnManager::new();
+    manager.get_logs().map_err(|e| e.to_string())
 }

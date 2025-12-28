@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../store/app";
 import { api, VerifyResponse } from "../lib/api";
 import { Shield, ExternalLink, Key } from "lucide-react";
@@ -35,7 +36,7 @@ export default function ApiKeyAuth() {
   };
 
   const openWebsite = () => {
-    open("https://ovpn.rbwtech.io");
+    openUrl("https://ovpn.rbwtech.io");
   };
 
   return (

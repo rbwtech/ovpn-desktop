@@ -49,6 +49,13 @@ impl OpenVpnManager {
         Ok(())
     }
 
+    pub fn save_credentials(&self, config_name: &str, credentials: &str) -> Result<()> {
+        let creds_file = self.config_dir.join(format!("{}.creds", config_name));
+        fs::write(&creds_file, credentials)
+            .with_context(|| format!("Failed to save credentials: {}", config_name))?;
+        Ok(())
+    }
+
     pub fn list_configs(&self) -> Result<Vec<crate::commands::VpnConfig>> {
         let mut configs = Vec::new();
 
@@ -57,24 +64,21 @@ impl OpenVpnManager {
                 if let Some(name) = entry.file_name().to_str() {
                     if name.ends_with(".ovpn") {
                         let config_name = name.trim_end_matches(".ovpn").to_string();
-                        let parts: Vec<String> = config_name
-                        .split('-')
-                        .map(|s| s.to_string())
-                        .collect();
-
+                        let parts: Vec<&str> = config_name.split('-').collect();
 
                         configs.push(crate::commands::VpnConfig {
-                            name: config_name,
-                            server: parts.get(1).cloned().unwrap_or_else(|| "unknown".to_string()),
-                            protocol: parts.get(2).cloned().unwrap_or_else(|| "udp".to_string()),
+                            name: config_name.clone(),
+                            server: parts.get(1).unwrap_or(&"unknown").to_string(),
+                            protocol: parts.get(2).unwrap_or(&"udp").to_string(),
                             created_at: entry
                                 .metadata()
                                 .ok()
                                 .and_then(|m| m.created().ok())
-                                .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
+                                .map(|t| {
+                                    chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339()
+                                })
                                 .unwrap_or_default(),
                         });
-
                     }
                 }
             }
@@ -92,6 +96,7 @@ impl OpenVpnManager {
 
     pub fn connect(&self, config_name: &str) -> Result<()> {
         let config_file = self.config_dir.join(format!("{}.ovpn", config_name));
+        let creds_file = self.config_dir.join(format!("{}.creds", config_name));
 
         if !config_file.exists() {
             return Err(anyhow::anyhow!("Config file not found: {}", config_name));
@@ -103,11 +108,61 @@ impl OpenVpnManager {
         #[cfg(not(target_os = "windows"))]
         let openvpn_path = "openvpn";
 
-        let child = Command::new(openvpn_path)
-            .arg("--config")
-            .arg(&config_file)
-            .spawn()
-            .context("Failed to start OpenVPN")?;
+        // Check if OpenVPN binary exists
+        #[cfg(target_os = "windows")]
+        if !std::path::Path::new(openvpn_path).exists() {
+            // Try to install bundled OpenVPN
+            let msi_path = std::env::current_exe()
+                .ok()
+                .and_then(|exe| exe.parent().map(|p| p.join("resources").join("OpenVPN-2.6.17-I001-amd64.msi")))
+                .unwrap_or_else(|| std::path::PathBuf::from("resources/OpenVPN-2.6.17-I001-amd64.msi"));
+            
+            if msi_path.exists() {
+                // Install OpenVPN silently
+                let install = Command::new("msiexec")
+                    .args(&["/i", &msi_path.to_string_lossy(), "/quiet", "/norestart"])
+                    .status();
+                
+                if install.is_ok() {
+                    // Wait for installation
+                    std::thread::sleep(std::time::Duration::from_secs(10));
+                    
+                    if !std::path::Path::new(openvpn_path).exists() {
+                        return Err(anyhow::anyhow!("OpenVPN installation failed"));
+                    }
+                } else {
+                    return Err(anyhow::anyhow!("Failed to install OpenVPN"));
+                }
+            } else {
+                return Err(anyhow::anyhow!(
+                    "OpenVPN not installed and installer not found. Please install manually from https://openvpn.net/community-downloads/"
+                ));
+            }
+        }
+
+        use std::process::Stdio;
+        use std::fs::OpenOptions;
+        
+        let log_file = self.config_dir.join("openvpn.log");
+        let log_output = OpenOptions::new()
+            .create(true)
+            .write(true)
+            .truncate(true)
+            .open(&log_file)
+            .context("Failed to create log file")?;
+        
+        let mut cmd = Command::new(openvpn_path);
+        cmd.arg("--config").arg(&config_file);
+        cmd.stdout(Stdio::from(log_output.try_clone()?));
+        cmd.stderr(Stdio::from(log_output));
+        
+        // Add credentials if file exists
+        if creds_file.exists() {
+            cmd.arg("--auth-user-pass").arg(&creds_file);
+        }
+
+        let child = cmd.spawn()
+            .with_context(|| format!("Failed to start OpenVPN. Make sure OpenVPN is installed."))?;
 
         let mut process = VPN_PROCESS.lock().unwrap();
         *process = Some(child);
@@ -123,5 +178,57 @@ impl OpenVpnManager {
         }
 
         Ok(())
+    }
+
+    pub fn is_connected(&self) -> bool {
+        let mut process = VPN_PROCESS.lock().unwrap();
+        
+        if let Some(child) = process.as_mut() {
+            // Check if process is still running
+            match child.try_wait() {
+                Ok(Some(_)) => {
+                    // Process has exited
+                    *process = None;
+                    false
+                }
+                Ok(None) => {
+                    // Process is still running
+                    true
+                }
+                Err(_) => {
+                    // Error checking process
+                    false
+                }
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn get_logs(&self) -> Result<String> {
+        use std::io::{BufRead, BufReader};
+        
+        let log_file = self.config_dir.join("openvpn.log");
+        
+        if !log_file.exists() {
+            return Ok(String::new());
+        }
+
+        let file = fs::File::open(&log_file)?;
+        let reader = BufReader::new(file);
+        
+        // Get last 100 lines
+        let lines: Vec<String> = reader.lines()
+            .filter_map(|l| l.ok())
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .take(100)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
+        
+        Ok(lines.join("\n"))
     }
 }
