@@ -1,12 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../lib/api";
-import { useAppStore } from "../store/app";
+import { api, VpnConnection } from "../lib/api";
 import { Shield, ShieldOff, Activity } from "lucide-react";
 import "../styles/VpnStatus.css";
 
 export default function VpnStatus() {
-  const { vpnStatus } = useAppStore();
-
   const { data: status } = useQuery({
     queryKey: ["vpn-status"],
     queryFn: api.getVpnStatus,

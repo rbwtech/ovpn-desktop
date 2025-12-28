@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { open } from "@tauri-apps/api/shell";
 import { useAppStore } from "../store/app";
-import { api } from "../lib/api";
+import { api, VerifyResponse } from "../lib/api";
 import { Shield, ExternalLink, Key } from "lucide-react";
 import "../styles/ApiKeyAuth.css";
 
@@ -13,7 +12,7 @@ export default function ApiKeyAuth() {
 
   const verifyMutation = useMutation({
     mutationFn: () => api.verifyApiKey(apiKey),
-    onSuccess: (data) => {
+    onSuccess: (data: VerifyResponse) => {
       saveApiKey(apiKey);
       setUser({
         username: data.username,

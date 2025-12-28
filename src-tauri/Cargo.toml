@@ -5,12 +5,7 @@ description = "ovpn.rbwtech.io Client Side Application"
 authors = ["RBW-Tech"]
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
 name = "rbw_vpn_client_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -26,6 +21,8 @@ reqwest = { version = "0.11", features = ["json", "blocking"] }
 tokio = { version = "1.35", features = ["full"] }
 anyhow = "1.0"
 thiserror = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+lazy_static = "1.4"
 
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["winsvc", "winuser", "processthreadsapi"] }
