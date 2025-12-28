@@ -121,21 +121,63 @@ pub async fn import_config(name: String, content: String) -> Result<VpnConfig, S
     })
 }
 
+#[cfg(target_os = "windows")]
+fn get_system_architecture() -> String {
+    use std::process::Command;
+    
+    if let Ok(arch) = std::env::var("PROCESSOR_ARCHITECTURE") {
+        match arch.as_str() {
+            "AMD64" => return "x64".to_string(),
+            "ARM64" => return "arm64".to_string(),
+            "x86" => return "x86".to_string(),
+            _ => {}
+        }
+    }
+    
+    let output = Command::new("wmic")
+        .args(&["cpu", "get", "architecture"])
+        .output();
+    
+    if let Ok(output) = output {
+        let result = String::from_utf8_lossy(&output.stdout);
+        if result.contains("9") {
+            return "x64".to_string();
+        } else if result.contains("12") {
+            return "arm64".to_string();
+        } else if result.contains("0") {
+            return "x86".to_string();
+        }
+    }
+    
+    "x64".to_string()
+}
+
 #[tauri::command]
 pub async fn install_openvpn(window: tauri::Window) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
         
-        window.emit("install-progress", "Checking OpenVPN...").ok();
+        window.emit("install-progress", "Detecting system architecture...").ok();
+        
+        let arch = get_system_architecture();
+        
+        window.emit("install-progress", format!("System: {}", arch)).ok();
+        
+        let installer_name = match arch.as_str() {
+            "x64" => "OpenVPN-2.6.17-I001-amd64.msi",
+            "arm64" => "OpenVPN-2.6.17-I001-arm64.msi",
+            "x86" => "OpenVPN-2.6.17-I001-x86.msi",
+            _ => "OpenVPN-2.6.17-I001-amd64.msi",
+        };
         
         let msi_path = std::env::current_exe()
             .ok()
-            .and_then(|exe| exe.parent().map(|p| p.join("resources").join("OpenVPN-2.6.17-I001-amd64.msi")))
-            .unwrap_or_else(|| std::path::PathBuf::from("resources/OpenVPN-2.6.17-I001-amd64.msi"));
+            .and_then(|exe| exe.parent().map(|p| p.join("resources").join(installer_name)))
+            .unwrap_or_else(|| std::path::PathBuf::from(format!("resources/{}", installer_name)));
         
         if !msi_path.exists() {
-            return Err("OpenVPN installer not found".to_string());
+            return Err(format!("OpenVPN installer for {} not found", arch));
         }
         
         window.emit("install-progress", "Installing OpenVPN...").ok();
