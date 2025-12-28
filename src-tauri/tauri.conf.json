@@ -32,15 +32,18 @@
       "icons/128x128@2x.png",
       "icons/icon.ico"
     ],
-    "resources": ["app.manifest", "resources/*"],
+    "resources": ["resources/*"],
     "windows": {
-      "wix": {
-        "language": "en-US"
-      },
       "nsis": {
         "installerIcon": "icons/icon.ico",
-        "installMode": "perMachine"
+        "installMode": "perMachine",
+        "languages": ["English"],
+        "displayLanguageSelector": false
       }
-    }
+    },
+    "publisher": "RBW-Tech",
+    "copyright": "Copyright © 2025 RBW-Tech",
+    "shortDescription": "OpenVPN Client Manager",
+    "longDescription": "Legitimate VPN client for managing OpenVPN connections"
   }
 }

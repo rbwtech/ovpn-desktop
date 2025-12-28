@@ -6,9 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "tauri": "tauri",
-    "tauri:build": "npm run tauri build && npm run embed:manifest",
-    "embed:manifest": "cd src-tauri && powershell -ExecutionPolicy Bypass -File embed-admin.ps1"
+    "tauri": "tauri"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.17.19",
