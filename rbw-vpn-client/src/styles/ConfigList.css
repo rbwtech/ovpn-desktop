@@ -1,0 +1,129 @@
+.configs-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.configs-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.empty-icon {
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  opacity: 0.5;
+}
+
+.empty-hint {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+.config-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.config-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+  padding: 20px;
+  transition: border-color 0.3s;
+  border-left: 3px solid transparent;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.config-item.active {
+  border-left-color: var(--primary);
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.config-info h4 {
+  font-size: 1rem;
+  margin-bottom: 8px;
+  color: var(--text-main);
+}
+
+.config-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.separator {
+  color: var(--border-color);
+}
+
+.config-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+}
+
+.btn-action.connect {
+  background: var(--primary);
+  color: #000;
+  box-shadow: 0 0 15px var(--primary-glow);
+}
+
+.btn-action.connect:hover:not(:disabled) {
+  box-shadow: 0 0 25px var(--primary-glow);
+}
+
+.btn-action.disconnect {
+  background: var(--error);
+  color: #fff;
+}
+
+.btn-action.disconnect:hover:not(:disabled) {
+  background: #dc2626;
+}
+
+.btn-action.delete {
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--error);
+  padding: 10px;
+}
+
+.btn-action.delete:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+@media (max-width: 768px) {
+  .config-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .config-actions {
+    width: 100%;
+  }
+
+  .btn-action {
+    flex: 1;
+  }
+}
