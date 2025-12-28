@@ -8,7 +8,60 @@ mod state;
 use state::AppState;
 use tauri::Manager;
 
+#[cfg(windows)]
+fn is_elevated() -> bool {
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+    Command::new("net")
+        .args(&["session"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+#[cfg(windows)]
+fn show_admin_error() {
+    use std::ffi::OsStr;
+    use std::os::windows::ffi::OsStrExt;
+    use winapi::um::winuser::{MessageBoxW, MB_OK, MB_ICONERROR};
+    
+    let title: Vec<u16> = OsStr::new("Administrator Required")
+        .encode_wide()
+        .chain(Some(0))
+        .collect();
+    
+    let message: Vec<u16> = OsStr::new(
+        "RBW-Tech VPN requires Administrator privileges.\n\n\
+         Please right-click the application and select 'Run as administrator'."
+    )
+    .encode_wide()
+    .chain(Some(0))
+    .collect();
+    
+    unsafe {
+        MessageBoxW(
+            std::ptr::null_mut(),
+            message.as_ptr(),
+            title.as_ptr(),
+            MB_OK | MB_ICONERROR
+        );
+    }
+}
+
 fn main() {
+    #[cfg(windows)]
+    {
+        if !is_elevated() {
+            show_admin_error();
+            std::process::exit(1);
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())

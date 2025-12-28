@@ -38,7 +38,8 @@
         "language": "en-US"
       },
       "nsis": {
-        "installerIcon": "icons/icon.ico"
+        "installerIcon": "icons/icon.ico",
+        "installMode": "perMachine"
       }
     }
   }
