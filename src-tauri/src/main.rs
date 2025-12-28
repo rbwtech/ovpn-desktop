@@ -6,35 +6,24 @@ mod commands;
 mod state;
 
 use state::AppState;
+use tauri::Manager;
 
 #[cfg(windows)]
 fn is_elevated() -> bool {
-    use winapi::um::processthreadsapi::{GetCurrentProcess, OpenProcessToken};
-    use winapi::um::securitybaseapi::GetTokenInformation;
-    use winapi::um::winnt::{TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
-    use std::mem;
+    use std::os::windows::process::CommandExt;
+    use std::process::Command;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
 
-    unsafe {
-        let mut token = std::ptr::null_mut();
-        if OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &mut token) == 0 {
-            return false;
-        }
-
-        let mut elevation = TOKEN_ELEVATION { TokenIsElevated: 0 };
-        let size = mem::size_of::<TOKEN_ELEVATION>() as u32;
-        let mut ret_size = 0;
-
-        GetTokenInformation(
-            token,
-            TokenElevation,
-            &mut elevation as *mut _ as *mut _,
-            size,
-            &mut ret_size,
-        );
-
-        elevation.TokenIsElevated != 0
-    }
+    Command::new("net")
+        .args(&["session"])
+        .creation_flags(CREATE_NO_WINDOW)
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
+
 
 fn main() {
     #[cfg(windows)]
@@ -49,11 +38,27 @@ fn main() {
             std::process::exit(0);
         }
     }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_opener::init())
         .manage(AppState::new())
+
+        .setup(|app| {
+            if let Some(window) = app.get_webview_window("main") {
+                window.on_window_event(move |event| {
+                    if let tauri::WindowEvent::CloseRequested { .. } = event {
+                        // Disconnect VPN before closing
+                        let manager = crate::openvpn::OpenVpnManager::new();
+                        let _ = manager.disconnect();
+                    }
+                });
+            }
+
+            Ok(())
+        })
+
         .invoke_handler(tauri::generate_handler![
             commands::verify_api_key,
             commands::list_servers,
@@ -68,6 +73,7 @@ fn main() {
             commands::disconnect_vpn,
             commands::get_vpn_status,
             commands::get_vpn_logs,
+            commands::check_openvpn,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

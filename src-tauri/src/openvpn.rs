@@ -172,9 +172,8 @@ impl OpenVpnManager {
         }
 
         cmd.arg("--config").arg(&config_file);
-        cmd.arg("--config").arg(&config_file);
+        cmd.arg("--status").arg(self.config_dir.join("status.txt")).arg("1");
         cmd.stdout(Stdio::from(log_output.try_clone()?));
-        cmd.stderr(Stdio::from(log_output));
         
         // Add credentials if file exists
         if creds_file.exists() {
@@ -252,34 +251,30 @@ impl OpenVpnManager {
         Ok(lines.join("\n"))
     }
 
-    pub fn get_stats(&self) -> Result<(u64, u64)> {
-    let log_file = self.config_dir.join("openvpn.log");
-    
-    if !log_file.exists() {
-        return Ok((0, 0));
-    }
+   pub fn get_stats(&self) -> Result<(u64, u64)> {
+        let status_file = self.config_dir.join("status.txt");
+        
+        if !status_file.exists() {
+            return Ok((0, 0));
+        }
 
-    let content = fs::read_to_string(&log_file)?;
-    let mut bytes_sent = 0u64;
-    let mut bytes_received = 0u64;
+        let content = fs::read_to_string(&status_file)?;
+        let mut bytes_sent = 0u64;
+        let mut bytes_received = 0u64;
 
-    for line in content.lines().rev().take(200) {
-        if line.contains("read bytes") {
-            if let Some(bytes_str) = line.split(',').nth(1) {
-                if let Ok(bytes) = bytes_str.trim().parse::<u64>() {
-                    bytes_received = bytes;
+        for line in content.lines() {
+            if line.starts_with("TCP/UDP read bytes") || line.starts_with("UDP read bytes") || line.starts_with("TCP read bytes") {
+                if let Some(bytes_str) = line.split(',').nth(1) {
+                    bytes_received = bytes_str.trim().parse().unwrap_or(0);
+                }
+            }
+            if line.starts_with("TCP/UDP write bytes") || line.starts_with("UDP write bytes") || line.starts_with("TCP write bytes") {
+                if let Some(bytes_str) = line.split(',').nth(1) {
+                    bytes_sent = bytes_str.trim().parse().unwrap_or(0);
                 }
             }
         }
-        if line.contains("write bytes") {
-            if let Some(bytes_str) = line.split(',').nth(1) {
-                if let Ok(bytes) = bytes_str.trim().parse::<u64>() {
-                    bytes_sent = bytes;
-                }
-            }
-        }
-    }
 
-    Ok((bytes_sent, bytes_received))
-}
+        Ok((bytes_sent, bytes_received))
+    }
 }

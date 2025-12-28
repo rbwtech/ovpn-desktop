@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import {
   Shield,
   ShieldOff,
@@ -48,6 +50,8 @@ export default function Dashboard() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberCreds, setRememberCreds] = useState(false);
+  const [showInstallModal, setShowInstallModal] = useState(false);
+  const [installProgress, setInstallProgress] = useState("");
 
   const [generateForm, setGenerateForm] = useState({
     username: "",
@@ -77,6 +81,22 @@ export default function Dashboard() {
     if (selectedConfig) loadSavedCreds();
   }, [selectedConfig]);
 
+  useEffect(() => {
+    const unlisten = listen("install-progress", (event: any) => {
+      setInstallProgress(event.payload);
+      if (event.payload === "Complete!") {
+        setTimeout(() => {
+          setShowInstallModal(false);
+          setInstallProgress("");
+        }, 500);
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, []);
+
   const queryClient = useQueryClient();
 
   const { data: configs = [] } = useQuery<VpnConfig[]>({
@@ -97,6 +117,13 @@ export default function Dashboard() {
 
   const connectMutation = useMutation({
     mutationFn: async () => {
+      try {
+        await invoke("check_openvpn");
+      } catch (e) {
+        setShowInstallModal(true);
+        await invoke("install_openvpn", { window: getCurrentWindow() });
+      }
+
       if (rememberCreds) {
         const creds = `${username}\n${password}`;
         await invoke("save_credentials", {
@@ -110,7 +137,6 @@ export default function Dashboard() {
       setShowCredentials(false);
       setUsername("");
       setPassword("");
-      // Status will update automatically via refetch
     },
     onError: (error: any) => alert(`Failed: ${error}`),
   });
@@ -566,6 +592,18 @@ export default function Dashboard() {
               >
                 Generate
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showInstallModal && (
+        <div className="modal-overlay">
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Installing OpenVPN</h3>
+            </div>
+            <div className="modal-body">
+              <p>{installProgress || "Preparing installation..."}</p>
             </div>
           </div>
         </div>

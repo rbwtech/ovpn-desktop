@@ -213,6 +213,18 @@ pub async fn connect_vpn(
 }
 
 #[tauri::command]
+pub async fn check_openvpn() -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        let openvpn_path = r"C:\Program Files\OpenVPN\bin\openvpn.exe";
+        if !std::path::Path::new(openvpn_path).exists() {
+            return Err("OpenVPN not installed".to_string());
+        }
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn disconnect_vpn(state: State<'_, AppState>) -> Result<(), String> {
     let manager = OpenVpnManager::new();
     manager.disconnect().map_err(|e| e.to_string())?;

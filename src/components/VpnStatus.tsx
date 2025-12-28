@@ -19,9 +19,23 @@ export default function VpnStatus() {
       const result = await invoke<string>("get_vpn_logs");
       return result;
     },
-    refetchInterval: 2000,
-    enabled: !!status,
+    refetchInterval: 500,
+    enabled: true,
   });
+
+  {
+    logs && logs.length > 10 && (
+      <div className="logs-panel glass-panel">
+        <div className="logs-header">
+          <FileText size={18} />
+          <h3>Connection Logs</h3>
+        </div>
+        <div className="logs-content">
+          <pre>{logs}</pre>
+        </div>
+      </div>
+    );
+  }
 
   const isConnected = !!status;
 
