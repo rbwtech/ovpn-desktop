@@ -59,6 +59,8 @@ fn main() {
             commands::list_servers,
             commands::generate_config,
             commands::save_credentials,
+            commands::load_credentials,
+            commands::install_openvpn,
             commands::import_config,
             commands::list_configs,
             commands::delete_config,

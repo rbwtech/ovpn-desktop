@@ -29,11 +29,11 @@ pub struct Server {
 pub struct GenerateRequest {
     pub username: String,
     pub password: String,
+    pub email: Option<String>,
     pub server_code: String,
     pub protocol: String,
     pub expiry_days: Option<i32>,
 }
-
 pub struct ApiClient {
     client: reqwest::Client,
 }

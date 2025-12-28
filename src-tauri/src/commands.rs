@@ -2,7 +2,7 @@ use crate::api::{ApiClient, GenerateRequest};
 use crate::openvpn::OpenVpnManager;
 use crate::state::{AppState, VpnConnection};
 use serde::{Deserialize, Serialize};
-use tauri::State;
+use tauri::{State, Emitter};
 
 #[derive(Debug, Serialize)]
 pub struct VerifyResponse {
@@ -70,6 +70,7 @@ pub async fn generate_config(
     state: State<'_, AppState>,
     username: String,
     password: String,
+    email: Option<String>,
     server_code: String,
     protocol: String,
     expiry_days: Option<i32>,
@@ -80,6 +81,7 @@ pub async fn generate_config(
     let request = GenerateRequest {
         username: username.clone(),
         password,
+        email,
         server_code: server_code.clone(),
         protocol: protocol.clone(),
         expiry_days,
@@ -120,6 +122,44 @@ pub async fn import_config(name: String, content: String) -> Result<VpnConfig, S
 }
 
 #[tauri::command]
+pub async fn install_openvpn(window: tauri::Window) -> Result<(), String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::process::Command;
+        
+        window.emit("install-progress", "Checking OpenVPN...").ok();
+        
+        let msi_path = std::env::current_exe()
+            .ok()
+            .and_then(|exe| exe.parent().map(|p| p.join("resources").join("OpenVPN-2.6.17-I001-amd64.msi")))
+            .unwrap_or_else(|| std::path::PathBuf::from("resources/OpenVPN-2.6.17-I001-amd64.msi"));
+        
+        if !msi_path.exists() {
+            return Err("OpenVPN installer not found".to_string());
+        }
+        
+        window.emit("install-progress", "Installing OpenVPN...").ok();
+        
+        let status = Command::new("msiexec")
+            .args(&["/i", &msi_path.to_string_lossy(), "/qn", "/norestart"])
+            .status()
+            .map_err(|e| e.to_string())?;
+        
+        if !status.success() {
+            return Err("Installation failed".to_string());
+        }
+        
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        window.emit("install-progress", "Complete!").ok();
+        
+        Ok(())
+    }
+    
+    #[cfg(not(target_os = "windows"))]
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn list_configs() -> Result<Vec<VpnConfig>, String> {
     let manager = OpenVpnManager::new();
     manager.list_configs().map_err(|e| e.to_string())
@@ -135,6 +175,12 @@ pub async fn delete_config(name: String) -> Result<(), String> {
 pub async fn save_credentials(config_name: String, credentials: String) -> Result<(), String> {
     let manager = OpenVpnManager::new();
     manager.save_credentials(&config_name, &credentials).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn load_credentials(config_name: String) -> Result<String, String> {
+    let manager = OpenVpnManager::new();
+    manager.load_credentials(&config_name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -180,11 +226,19 @@ pub async fn disconnect_vpn(state: State<'_, AppState>) -> Result<(), String> {
 pub async fn get_vpn_status(state: State<'_, AppState>) -> Result<Option<VpnConnection>, String> {
     let manager = OpenVpnManager::new();
     
-    // Check if OpenVPN process is actually running
     if !manager.is_connected() {
-        // Process not running, clear state
         state.set_connection(None);
         return Ok(None);
+    }
+    
+    // Get current connection and update bytes
+    if let Some(mut conn) = state.get_connection() {
+        if let Ok((sent, recv)) = manager.get_stats() {
+            conn.bytes_sent = sent;
+            conn.bytes_received = recv;
+            state.set_connection(Some(conn.clone()));
+            return Ok(Some(conn));
+        }
     }
     
     Ok(state.get_connection())

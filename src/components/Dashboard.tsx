@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -47,13 +47,35 @@ export default function Dashboard() {
   const [selectedConfig, setSelectedConfig] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberCreds, setRememberCreds] = useState(false);
 
   const [generateForm, setGenerateForm] = useState({
     username: "",
     password: "",
+    email: "",
     server: "sg",
     protocol: "udp" as "udp" | "tcp",
+    expiryDays: 365,
   });
+
+  useEffect(() => {
+    const loadSavedCreds = async () => {
+      if (selectedConfig) {
+        try {
+          const saved = await invoke<string>("load_credentials", {
+            configName: selectedConfig,
+          });
+          if (saved) {
+            const [u, p] = saved.split("\n");
+            setUsername(u);
+            setPassword(p);
+            setRememberCreds(true);
+          }
+        } catch {}
+      }
+    };
+    if (selectedConfig) loadSavedCreds();
+  }, [selectedConfig]);
 
   const queryClient = useQueryClient();
 
@@ -75,11 +97,13 @@ export default function Dashboard() {
 
   const connectMutation = useMutation({
     mutationFn: async () => {
-      const creds = `${username}\n${password}`;
-      await invoke("save_credentials", {
-        configName: selectedConfig,
-        credentials: creds,
-      });
+      if (rememberCreds) {
+        const creds = `${username}\n${password}`;
+        await invoke("save_credentials", {
+          configName: selectedConfig,
+          credentials: creds,
+        });
+      }
       return invoke("connect_vpn", { configName: selectedConfig });
     },
     onSuccess: () => {
@@ -110,14 +134,14 @@ export default function Dashboard() {
 
   const generateMutation = useMutation({
     mutationFn: async () => {
-      const config = await invoke<string>("generate_config", {
+      return invoke("generate_config", {
         username: generateForm.username,
         password: generateForm.password,
+        email: generateForm.email || null,
         serverCode: generateForm.server,
         protocol: generateForm.protocol,
+        expiryDays: generateForm.expiryDays,
       });
-      const name = `${generateForm.username}-${generateForm.server}-${generateForm.protocol}`;
-      return invoke("import_config", { name, content: config });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["configs"] });
@@ -125,12 +149,17 @@ export default function Dashboard() {
       setGenerateForm({
         username: "",
         password: "",
+        email: "",
         server: "sg",
         protocol: "udp",
+        expiryDays: 365,
       });
       alert("Config generated!");
     },
-    onError: (error: any) => alert(`Failed: ${error}`),
+    onError: (error: any) => {
+      console.error(error);
+      alert(`Failed: ${error}`);
+    },
   });
 
   const handleImport = () => {
@@ -345,6 +374,16 @@ export default function Dashboard() {
                   placeholder="Enter password"
                 />
               </div>
+              <div className="form-group">
+                <label className="checkbox-label">
+                  <input
+                    type="checkbox"
+                    checked={rememberCreds}
+                    onChange={(e) => setRememberCreds(e.target.checked)}
+                  />
+                  <span>Remember credentials</span>
+                </label>
+              </div>
             </div>
             <div className="modal-footer">
               <button
@@ -424,10 +463,10 @@ export default function Dashboard() {
                   type="text"
                   value={generateForm.username}
                   onChange={(e) =>
-                    setGenerateForm({
-                      ...generateForm,
+                    setGenerateForm((prev) => ({
+                      ...prev,
                       username: e.target.value,
-                    })
+                    }))
                   }
                   placeholder="Enter username"
                 />
@@ -438,12 +477,23 @@ export default function Dashboard() {
                   type="password"
                   value={generateForm.password}
                   onChange={(e) =>
-                    setGenerateForm({
-                      ...generateForm,
+                    setGenerateForm((prev) => ({
+                      ...prev,
                       password: e.target.value,
-                    })
+                    }))
                   }
                   placeholder="Enter password"
+                />
+              </div>
+              <div className="form-group">
+                <label>Email (Optional)</label>
+                <input
+                  type="email"
+                  value={generateForm.email}
+                  onChange={(e) =>
+                    setGenerateForm({ ...generateForm, email: e.target.value })
+                  }
+                  placeholder="your@email.com"
                 />
               </div>
               <div className="form-group">
@@ -460,6 +510,21 @@ export default function Dashboard() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="form-group">
+                <label>Expiry Days</label>
+                <input
+                  type="number"
+                  value={generateForm.expiryDays}
+                  onChange={(e) =>
+                    setGenerateForm({
+                      ...generateForm,
+                      expiryDays: parseInt(e.target.value) || 365,
+                    })
+                  }
+                  min="1"
+                  max="3650"
+                />
               </div>
               <div className="form-group">
                 <label>Protocol</label>

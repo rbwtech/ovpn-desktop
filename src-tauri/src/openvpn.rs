@@ -49,6 +49,17 @@ impl OpenVpnManager {
         Ok(())
     }
 
+    pub fn load_credentials(&self, config_name: &str) -> Result<String> {
+    let creds_file = self.config_dir.join(format!("{}.creds", config_name));
+    if creds_file.exists() {
+        let content = fs::read_to_string(&creds_file)
+            .with_context(|| format!("Failed to load credentials: {}", config_name))?;
+        Ok(content)
+    } else {
+        Err(anyhow::anyhow!("Credentials not found"))
+    }
+}
+
     pub fn save_credentials(&self, config_name: &str, credentials: &str) -> Result<()> {
         let creds_file = self.config_dir.join(format!("{}.creds", config_name));
         fs::write(&creds_file, credentials)
@@ -152,6 +163,15 @@ impl OpenVpnManager {
             .context("Failed to create log file")?;
         
         let mut cmd = Command::new(openvpn_path);
+
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            const CREATE_NO_WINDOW: u32 = 0x08000000;
+            cmd.creation_flags(CREATE_NO_WINDOW);
+        }
+
+        cmd.arg("--config").arg(&config_file);
         cmd.arg("--config").arg(&config_file);
         cmd.stdout(Stdio::from(log_output.try_clone()?));
         cmd.stderr(Stdio::from(log_output));
@@ -231,4 +251,35 @@ impl OpenVpnManager {
         
         Ok(lines.join("\n"))
     }
+
+    pub fn get_stats(&self) -> Result<(u64, u64)> {
+    let log_file = self.config_dir.join("openvpn.log");
+    
+    if !log_file.exists() {
+        return Ok((0, 0));
+    }
+
+    let content = fs::read_to_string(&log_file)?;
+    let mut bytes_sent = 0u64;
+    let mut bytes_received = 0u64;
+
+    for line in content.lines().rev().take(200) {
+        if line.contains("read bytes") {
+            if let Some(bytes_str) = line.split(',').nth(1) {
+                if let Ok(bytes) = bytes_str.trim().parse::<u64>() {
+                    bytes_received = bytes;
+                }
+            }
+        }
+        if line.contains("write bytes") {
+            if let Some(bytes_str) = line.split(',').nth(1) {
+                if let Ok(bytes) = bytes_str.trim().parse::<u64>() {
+                    bytes_sent = bytes;
+                }
+            }
+        }
+    }
+
+    Ok((bytes_sent, bytes_received))
+}
 }
