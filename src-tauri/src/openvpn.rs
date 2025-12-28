@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::{Child, Command};
 use std::sync::{Arc, Mutex};
+use regex::Regex;
 
 lazy_static::lazy_static! {
     static ref VPN_PROCESS: Arc<Mutex<Option<Child>>> = Arc::new(Mutex::new(None));
@@ -276,5 +277,67 @@ impl OpenVpnManager {
         }
 
         Ok((bytes_sent, bytes_received))
+    }
+
+    pub fn get_connection_details(&self, config_name: &str) -> Result<(String, String, String, u16, String)> {
+        let mut private_ipv4 = String::new();
+        let mut private_ipv6 = String::new();
+        let mut server_ip = String::new();
+        let mut server_port = 0u16;
+        let mut protocol = String::from("UDP");
+
+        let log_file = self.config_dir.join("openvpn.log");
+        if log_file.exists() {
+            let content = fs::read_to_string(&log_file)?;
+            
+            // Regex patterns
+            let ipv4_regex = Regex::new(r"ifconfig\s+(10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)\s+").unwrap();
+            let ipv6_regex = Regex::new(r"ifconfig-ipv6\s+([0-9a-f:]+)/\d+").unwrap();
+            let server_regex = Regex::new(r"\[AF_INET\](\d+\.\d+\.\d+\.\d+):(\d+)").unwrap();
+            
+            // Extract IPv4
+            if let Some(caps) = ipv4_regex.captures(&content) {
+                private_ipv4 = caps[1].to_string();
+            }
+            
+            // Extract IPv6
+            if let Some(caps) = ipv6_regex.captures(&content) {
+                private_ipv6 = caps[1].to_string();
+            }
+            
+            // Extract server IP:port
+            if let Some(caps) = server_regex.captures(&content) {
+                server_ip = caps[1].to_string();
+                server_port = caps[2].parse().unwrap_or(1194);
+            }
+            
+            // Detect protocol
+            if content.contains("TCPv4_CLIENT") {
+                protocol = "TCP".to_string();
+            }
+        }
+
+        // Fallback to config
+        if server_ip.is_empty() {
+            let config_path = self.config_dir.join(format!("{}.ovpn", config_name));
+            if config_path.exists() {
+                let config_content = fs::read_to_string(&config_path)?;
+                for line in config_content.lines() {
+                    if line.starts_with("remote ") {
+                        let parts: Vec<&str> = line.split_whitespace().collect();
+                        if parts.len() >= 3 {
+                            server_ip = parts[1].to_string();
+                            server_port = parts[2].parse().unwrap_or(1194);
+                        }
+                    }
+                    if line.starts_with("proto ") {
+                        protocol = line.split_whitespace().nth(1)
+                            .unwrap_or("udp").to_uppercase();
+                    }
+                }
+            }
+        }
+
+        Ok((private_ipv4, private_ipv6, server_ip, server_port, protocol))
     }
 }

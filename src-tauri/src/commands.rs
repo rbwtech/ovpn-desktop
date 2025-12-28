@@ -189,22 +189,28 @@ pub async fn connect_vpn(
     config_name: String,
 ) -> Result<(), String> {
     let manager = OpenVpnManager::new();
-    manager
-        .connect(&config_name)
-        .map_err(|e| e.to_string())?;
+    manager.connect(&config_name).map_err(|e| e.to_string())?;
 
-    // Don't set connection here - let get_vpn_status check the process
-    // Wait a bit for OpenVPN to start
     tokio::time::sleep(tokio::time::Duration::from_secs(2)).await;
     
-    // Now check if process is actually running
     if manager.is_connected() {
+        let (ipv4, ipv6, srv_ip, srv_port, proto) = manager
+            .get_connection_details(&config_name)
+            .unwrap_or_default();
+        
         state.set_connection(Some(VpnConnection {
             config_name,
             server: "unknown".to_string(),
+            server_ip: srv_ip,
+            server_port: srv_port,
+            protocol: proto,
+            private_ipv4: ipv4,
+            private_ipv6: ipv6,
             connected_at: chrono::Utc::now().to_rfc3339(),
             bytes_sent: 0,
             bytes_received: 0,
+            speed_up: 0,
+            speed_down: 0,
         }));
         Ok(())
     } else {
@@ -243,17 +249,47 @@ pub async fn get_vpn_status(state: State<'_, AppState>) -> Result<Option<VpnConn
         return Ok(None);
     }
     
-    // Get current connection and update bytes
     if let Some(mut conn) = state.get_connection() {
         if let Ok((sent, recv)) = manager.get_stats() {
+            let prev_sent = conn.bytes_sent;
+            let prev_recv = conn.bytes_received;
+            
+            conn.speed_up = if sent > prev_sent { 
+                (sent - prev_sent) / 3 
+            } else { 0 };
+            
+            conn.speed_down = if recv > prev_recv {
+                (recv - prev_recv) / 3
+            } else { 0 };
+            
             conn.bytes_sent = sent;
             conn.bytes_received = recv;
-            state.set_connection(Some(conn.clone()));
-            return Ok(Some(conn));
         }
+        
+        if let Ok((ipv4, ipv6, srv_ip, srv_port, proto)) = manager.get_connection_details(&conn.config_name) {
+            if !ipv4.is_empty() {
+                conn.private_ipv4 = ipv4;
+            }
+            if !ipv6.is_empty() {
+                conn.private_ipv6 = ipv6;
+            }
+            if !srv_ip.is_empty() {
+                conn.server_ip = srv_ip;
+                conn.server_port = srv_port;
+                conn.protocol = proto;
+            }
+        }
+        
+        state.set_connection(Some(conn.clone()));
+        return Ok(Some(conn));
     }
     
     Ok(state.get_connection())
+}
+
+#[tauri::command]
+pub async fn get_speed_history() -> Result<Vec<(u64, u64)>, String> {
+    Ok(vec![])
 }
 
 #[tauri::command]

@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useAppStore } from "../store/app";
+import VpnStatus from "./VpnStatus";
 import "../styles/Dashboard.css";
 
 interface Server {
@@ -137,6 +138,7 @@ export default function Dashboard() {
       setShowCredentials(false);
       setUsername("");
       setPassword("");
+      setView("status");
     },
     onError: (error: any) => alert(`Failed: ${error}`),
   });
@@ -225,7 +227,7 @@ export default function Dashboard() {
       <div className="header">
         <div className="header-left">
           <Shield className="logo-icon" size={24} />
-          <span className="logo-text">RBW VPN</span>
+          <span className="logo-text">RBW-Tech OVPN</span>
         </div>
         <div className="header-right">
           <span className="username">{user?.username}</span>
@@ -237,25 +239,31 @@ export default function Dashboard() {
 
       {/* Status Card */}
       <div className={`status-card ${vpnStatus ? "connected" : ""}`}>
-        {vpnStatus ? (
-          <>
-            <ShieldOff className="status-icon" size={48} />
-            <div className="status-text">Connected</div>
-            <div className="status-detail">{vpnStatus.config_name}</div>
-            <button
-              onClick={() => disconnectMutation.mutate()}
-              className="btn-disconnect"
-            >
-              <Power size={16} />
-              Disconnect
-            </button>
-          </>
-        ) : (
-          <>
-            <Shield className="status-icon" size={48} />
-            <div className="status-text">Not Connected</div>
-            <div className="status-detail">Select a config to connect</div>
-          </>
+        <div className="status-center">
+          {vpnStatus ? (
+            <ShieldOff size={32} className="status-icon" />
+          ) : (
+            <Shield size={32} className="status-icon" />
+          )}
+
+          <div className="status-text-group">
+            <div className="status-text">
+              {vpnStatus ? "Connected" : "Not Connected"}
+            </div>
+            <div className="status-detail">
+              {vpnStatus ? vpnStatus.config_name : "Select a config to connect"}
+            </div>
+          </div>
+        </div>
+
+        {vpnStatus && (
+          <button
+            onClick={() => disconnectMutation.mutate()}
+            className="btn-disconnect"
+          >
+            <Power size={14} />
+            Disconnect
+          </button>
         )}
       </div>
 
@@ -279,31 +287,7 @@ export default function Dashboard() {
 
       {/* Content */}
       <div className="content">
-        {view === "status" && (
-          <div className="status-view">
-            {vpnStatus ? (
-              <div className="stats">
-                <div className="stat-item">
-                  <label>Sent</label>
-                  <span>
-                    {(vpnStatus.bytes_sent / 1024 / 1024).toFixed(2)} MB
-                  </span>
-                </div>
-                <div className="stat-item">
-                  <label>Received</label>
-                  <span>
-                    {(vpnStatus.bytes_received / 1024 / 1024).toFixed(2)} MB
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="empty-state">
-                <p>No active connection</p>
-                <p className="hint">Go to Configs tab to connect</p>
-              </div>
-            )}
-          </div>
-        )}
+        {view === "status" && <VpnStatus />}
 
         {view === "list" && (
           <div className="config-view">
