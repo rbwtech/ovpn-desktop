@@ -57,21 +57,24 @@ impl OpenVpnManager {
                 if let Some(name) = entry.file_name().to_str() {
                     if name.ends_with(".ovpn") {
                         let config_name = name.trim_end_matches(".ovpn").to_string();
-                        let parts: Vec<&str> = config_name.split('-').collect();
+                        let parts: Vec<String> = config_name
+                        .split('-')
+                        .map(|s| s.to_string())
+                        .collect();
+
 
                         configs.push(crate::commands::VpnConfig {
                             name: config_name,
-                            server: parts.get(1).unwrap_or(&"unknown").to_string(),
-                            protocol: parts.get(2).unwrap_or(&"udp").to_string(),
+                            server: parts.get(1).cloned().unwrap_or_else(|| "unknown".to_string()),
+                            protocol: parts.get(2).cloned().unwrap_or_else(|| "udp".to_string()),
                             created_at: entry
                                 .metadata()
                                 .ok()
                                 .and_then(|m| m.created().ok())
-                                .map(|t| {
-                                    chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339()
-                                })
+                                .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
                                 .unwrap_or_default(),
                         });
+
                     }
                 }
             }
