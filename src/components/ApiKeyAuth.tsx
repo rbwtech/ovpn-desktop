@@ -3,12 +3,13 @@ import { useMutation } from "@tanstack/react-query";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useAppStore } from "../store/app";
 import { api, VerifyResponse } from "../lib/api";
-import { Shield, ExternalLink, Key } from "lucide-react";
+import { Shield, ExternalLink, Key, Eye, EyeOff } from "lucide-react";
 import "../styles/ApiKeyAuth.css";
 
 export default function ApiKeyAuth() {
   const [apiKey, setApiKey] = useState("");
   const [error, setError] = useState("");
+  const [showApiKey, setShowApiKey] = useState(false); // ← ADD THIS
   const { setApiKey: saveApiKey, setUser } = useAppStore();
 
   const verifyMutation = useMutation({
@@ -65,14 +66,24 @@ export default function ApiKeyAuth() {
         <form onSubmit={handleSubmit} className="auth-form">
           <div className="form-group">
             <label>API Key</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Enter your API key"
-              className="input-field"
-              disabled={verifyMutation.isPending}
-            />
+            <div className="input-with-icon">
+              <input
+                type={showApiKey ? "text" : "password"}
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter your API key"
+                className="input-field"
+                disabled={verifyMutation.isPending}
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="eye-toggle"
+                disabled={verifyMutation.isPending}
+              >
+                {showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           {error && <div className="error-message">{error}</div>}

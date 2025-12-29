@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "tauri": "tauri"
+    "preview": "vite preview",
+    "sync-version": "node sync-version.js",
+    "tauri": "npm run sync-version && tauri"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.17.19",

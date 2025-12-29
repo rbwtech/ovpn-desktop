@@ -53,6 +53,7 @@ export default function Dashboard() {
   const [rememberCreds, setRememberCreds] = useState(false);
   const [showInstallModal, setShowInstallModal] = useState(false);
   const [installProgress, setInstallProgress] = useState("");
+  const [configIPs, setConfigIPs] = useState<Record<string, string>>({});
 
   const [generateForm, setGenerateForm] = useState({
     username: "",
@@ -63,6 +64,7 @@ export default function Dashboard() {
     expiryDays: 365,
   });
 
+  // Load saved credentials when config is selected
   useEffect(() => {
     const loadSavedCreds = async () => {
       if (selectedConfig) {
@@ -76,7 +78,12 @@ export default function Dashboard() {
             setPassword(p);
             setRememberCreds(true);
           }
-        } catch {}
+        } catch {
+          // No saved credentials
+          setUsername("");
+          setPassword("");
+          setRememberCreds(false);
+        }
       }
     };
     if (selectedConfig) loadSavedCreds();
@@ -104,6 +111,25 @@ export default function Dashboard() {
     queryKey: ["configs"],
     queryFn: () => invoke("list_configs"),
   });
+
+  // Load IPs for each config
+  useEffect(() => {
+    const loadIPs = async () => {
+      const ips: Record<string, string> = {};
+      for (const config of configs) {
+        try {
+          const ip = await invoke<string>("get_config_ip", {
+            configName: config.name,
+          });
+          ips[config.name] = ip;
+        } catch {
+          ips[config.name] = "Unknown";
+        }
+      }
+      setConfigIPs(ips);
+    };
+    if (configs.length > 0) loadIPs();
+  }, [configs]);
 
   const { data: servers = [] } = useQuery<Server[]>({
     queryKey: ["servers"],
@@ -211,9 +237,41 @@ export default function Dashboard() {
     input.click();
   };
 
-  const handleConnect = (configName: string) => {
+  const handleConnect = async (configName: string) => {
     setSelectedConfig(configName);
-    setShowCredentials(true);
+
+    // Try to load saved credentials first
+    try {
+      const saved = await invoke<string>("load_credentials", {
+        configName,
+      });
+
+      if (saved) {
+        // Auto-connect with saved credentials
+        const [u, p] = saved.split("\n");
+        setUsername(u);
+        setPassword(p);
+        setRememberCreds(true);
+
+        // Connect immediately
+        try {
+          await invoke("check_openvpn");
+        } catch (e) {
+          setShowInstallModal(true);
+          await invoke("install_openvpn", { window: getCurrentWindow() });
+        }
+
+        await invoke("connect_vpn", { configName });
+        setView("status");
+        queryClient.invalidateQueries({ queryKey: ["vpn-status"] });
+      } else {
+        // Show credentials modal
+        setShowCredentials(true);
+      }
+    } catch {
+      // No saved credentials, show modal
+      setShowCredentials(true);
+    }
   };
 
   const handleLogout = () => {
@@ -314,34 +372,49 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="config-list">
-                {configs.map((config) => (
-                  <div key={config.name} className="config-item">
-                    <div className="config-info">
-                      <div className="config-name">{config.name}</div>
-                      <div className="config-meta">
-                        {config.server} • {config.protocol.toUpperCase()}
+                {configs.map((config) => {
+                  const isConnected = vpnStatus?.config_name === config.name;
+
+                  return (
+                    <div key={config.name} className="config-item">
+                      <div className="config-info">
+                        <div className="config-name">{config.name}</div>
+                        <div className="config-meta">
+                          {config.server} • {config.protocol.toUpperCase()} •{" "}
+                          {configIPs[config.name] || "Loading..."}
+                        </div>
+                        {isConnected && (
+                          <span className="connected-badge">Connected</span>
+                        )}
+                      </div>
+                      <div className="config-actions">
+                        <button
+                          onClick={() => handleConnect(config.name)}
+                          className="btn-connect"
+                          disabled={!!vpnStatus}
+                          title={vpnStatus ? "Disconnect first" : "Connect"}
+                        >
+                          <Power size={16} />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm(config.name);
+                          }}
+                          className="btn-delete"
+                          disabled={isConnected}
+                          title={
+                            isConnected
+                              ? "Cannot delete active connection"
+                              : "Delete config"
+                          }
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </div>
-                    <div className="config-actions">
-                      <button
-                        onClick={() => handleConnect(config.name)}
-                        className="btn-connect"
-                        disabled={!!vpnStatus}
-                      >
-                        <Power size={16} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteConfirm(config.name);
-                        }}
-                        className="btn-delete"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -391,7 +464,7 @@ export default function Dashboard() {
                     checked={rememberCreds}
                     onChange={(e) => setRememberCreds(e.target.checked)}
                   />
-                  <span>Remember credentials</span>
+                  <span>Remember credentials (auto-connect)</span>
                 </label>
               </div>
             </div>

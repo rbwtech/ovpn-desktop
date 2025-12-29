@@ -39,6 +39,8 @@ pub async fn verify_api_key(
         .await
         .map_err(|e| e.to_string())?;
 
+    crate::storage::Storage::save_api_key(&api_key).ok();
+    
     state.set_api_key(api_key);
 
     Ok(VerifyResponse {
@@ -46,6 +48,24 @@ pub async fn verify_api_key(
         username: response.username,
         server_location: response.server_location,
     })
+}
+
+#[tauri::command]
+pub async fn save_api_key_to_disk(api_key: String) -> Result<(), String> {
+    crate::storage::Storage::save_api_key(&api_key)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn load_api_key_from_disk() -> Result<String, String> {
+    crate::storage::Storage::load_api_key()
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn delete_api_key_from_disk() -> Result<(), String> {
+    crate::storage::Storage::delete_api_key()
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -280,6 +300,12 @@ pub async fn disconnect_vpn(state: State<'_, AppState>) -> Result<(), String> {
     state.set_connection(None);
 
     Ok(())
+}
+
+#[tauri::command]
+pub async fn get_config_ip(config_name: String) -> Result<String, String> {
+    let manager = OpenVpnManager::new();
+    manager.get_config_ip(&config_name).map_err(|e| e.to_string())
 }
 
 #[tauri::command]

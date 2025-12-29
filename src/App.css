@@ -95,6 +95,27 @@ button {
   margin-right: 5px;
 }
 
+.connected-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 8px;
+  background: rgba(16, 185, 129, 0.2);
+  border: 1px solid var(--primary);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: var(--primary);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.config-item .btn-delete:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  background: #1a1a1a;
+  color: #666;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     color: #f6f6f6;

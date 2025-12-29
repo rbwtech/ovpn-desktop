@@ -190,6 +190,28 @@ impl OpenVpnManager {
         Ok(())
     }
 
+    pub fn get_config_ip(&self, config_name: &str) -> Result<String> {
+        let config_path = self.config_dir.join(format!("{}.ovpn", config_name));
+        
+        if !config_path.exists() {
+            return Ok("Unknown".to_string());
+        }
+        
+        let content = fs::read_to_string(&config_path)
+            .context("Failed to read config file")?;
+        
+        for line in content.lines() {
+            if line.trim().starts_with("remote ") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    return Ok(parts[1].to_string());
+                }
+            }
+        }
+        
+        Ok("Unknown".to_string())
+    }
+
     pub fn disconnect(&self) -> Result<()> {
         let mut process = VPN_PROCESS.lock().unwrap();
 

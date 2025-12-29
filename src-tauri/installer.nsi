@@ -2,11 +2,10 @@
 !include "FileFunc.nsh"
 
 !define PRODUCT_NAME "RBW-Tech OVPN"
-!define PRODUCT_VERSION "0.2.0"
 !define MAIN_BINARY "rbw-vpn-client.exe"
+!include "version.nsh"
 
 Name "${PRODUCT_NAME}"
-OutFile "..\..\..\..\target\release\bundle\nsis\RBW-Tech OVPN_0.2.0_x64-setup.exe"
 InstallDir "$PROGRAMFILES64\${PRODUCT_NAME}"
 RequestExecutionLevel admin
 

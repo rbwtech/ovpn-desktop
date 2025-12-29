@@ -4,6 +4,7 @@ mod api;
 mod openvpn;
 mod commands;
 mod state;
+mod storage;
 
 use state::AppState;
 use tauri::Manager;
@@ -93,7 +94,11 @@ fn main() {
             commands::get_vpn_status,
             commands::get_vpn_logs,
             commands::check_openvpn,
-            commands::get_speed_history
+            commands::get_speed_history,
+            commands::get_config_ip,
+            commands::save_api_key_to_disk,      
+            commands::load_api_key_from_disk,    
+            commands::delete_api_key_from_disk
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

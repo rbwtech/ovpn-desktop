@@ -1,6 +1,7 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use base64::{Engine as _, engine::general_purpose};
+use std::time::Duration;
 
 const API_BASE: &str = "https://ovpn.rbwtech.io/api";
 
@@ -34,15 +35,20 @@ pub struct GenerateRequest {
     pub protocol: String,
     pub expiry_days: Option<i32>,
 }
+
 pub struct ApiClient {
     client: reqwest::Client,
 }
 
 impl ApiClient {
     pub fn new() -> Self {
-        Self {
-            client: reqwest::Client::new(),
-        }
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(20)) 
+            .connect_timeout(Duration::from_secs(10)) 
+            .build()
+            .unwrap();
+        
+        Self { client }
     }
 
     pub async fn verify_api_key(&self, api_key: &str) -> Result<VerifyResponse> {
