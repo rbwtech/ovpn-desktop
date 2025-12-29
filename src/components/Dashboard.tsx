@@ -529,7 +529,10 @@ export default function Dashboard() {
       {/* Generate Modal */}
       {showGenerate && (
         <div className="modal-overlay" onClick={() => setShowGenerate(false)}>
-          <div className="modal large" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="modal large generate-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="modal-header">
               <h3>Generate Configuration</h3>
               <button

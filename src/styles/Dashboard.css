@@ -551,6 +551,34 @@
   user-select: none;
 }
 
+.generate-modal {
+  font-size: 13px;
+}
+
+.generate-modal .modal-header h3 {
+  font-size: 16px;
+}
+
+.generate-modal label {
+  font-size: 12px;
+}
+
+.generate-modal input,
+.generate-modal select {
+  font-size: 13px;
+  padding: 8px 10px;
+}
+
+.generate-modal .radio-group label {
+  font-size: 12px;
+}
+
+.generate-modal .btn-cancel,
+.generate-modal .btn-confirm {
+  font-size: 13px;
+  padding: 8px 16px;
+}
+
 .radio-group input[type="radio"] {
   width: auto;
   margin: 0;
