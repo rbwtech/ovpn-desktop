@@ -1,6 +1,6 @@
 [package]
 name = "rbw-vpn-client"
-version = "0.2.0"
+version = "0.2.1"
 description = "ovpn.rbwtech.io Client Side Application"
 authors = ["RBW-Tech"]
 edition = "2021"

@@ -149,7 +149,6 @@ fn get_system_architecture() -> String {
         match arch.as_str() {
             "AMD64" => return "x64".to_string(),
             "ARM64" => return "arm64".to_string(),
-            "x86" => return "x86".to_string(),
             _ => {}
         }
     }
@@ -164,8 +163,6 @@ fn get_system_architecture() -> String {
             return "x64".to_string();
         } else if result.contains("12") {
             return "arm64".to_string();
-        } else if result.contains("0") {
-            return "x86".to_string();
         }
     }
     
@@ -187,7 +184,6 @@ pub async fn install_openvpn(window: tauri::Window) -> Result<(), String> {
         let installer_name = match arch.as_str() {
             "x64" => "OpenVPN-2.6.17-I001-amd64.msi",
             "arm64" => "OpenVPN-2.6.17-I001-arm64.msi",
-            "x86" => "OpenVPN-2.6.17-I001-x86.msi",
             _ => "OpenVPN-2.6.17-I001-amd64.msi",
         };
         

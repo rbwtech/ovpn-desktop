@@ -15,10 +15,23 @@ if (fs.existsSync(tauriConfigPath)) {
   console.log("✅ tauri.conf.json updated");
 }
 
+const cargoTomlPath = path.join(__dirname, "src-tauri", "Cargo.toml");
+if (fs.existsSync(cargoTomlPath)) {
+  let cargoContent = fs.readFileSync(cargoTomlPath, "utf8");
+  const versionRegex = /^version = ".*"/m;
+
+  if (versionRegex.test(cargoContent)) {
+    cargoContent = cargoContent.replace(versionRegex, `version = "${version}"`);
+    fs.writeFileSync(cargoTomlPath, cargoContent);
+    console.log(`✅ src-tauri/Cargo.toml updated to version ${version}`);
+  } else {
+    console.warn("⚠️  Could not find version line in Cargo.toml");
+  }
+}
+
 const nsisPath = path.join(__dirname, "src-tauri", "installer.nsi");
 if (fs.existsSync(nsisPath)) {
   let nsisContent = fs.readFileSync(nsisPath, "utf8");
-
   const regex = /!define PRODUCT_VERSION ".*"/;
 
   if (regex.test(nsisContent)) {
