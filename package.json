@@ -1,13 +1,14 @@
 {
   "name": "rbw-tech-ovpn",
   "private": true,
-  "version": "0.2.1",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "sync-version": "node sync-version.js",
+    "sync-version": "node sync-version.cjs",
+    "version": "npm run sync-version && git add src-tauri/tauri.conf.json src-tauri/version.nsh",
     "tauri": "npm run sync-version && tauri"
   },
   "dependencies": {
