@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+
 const packageJsonPath = path.join(__dirname, "package.json");
 const packageJson = require(packageJsonPath);
 const version = packageJson.version;
@@ -14,8 +15,22 @@ if (fs.existsSync(tauriConfigPath)) {
   console.log("✅ tauri.conf.json updated");
 }
 
-const nsisVersionFile = path.join(__dirname, "src-tauri", "version.nsh");
-const nsisContent = `!define PRODUCT_VERSION "${version}"`;
+const nsisPath = path.join(__dirname, "src-tauri", "installer.nsi");
+if (fs.existsSync(nsisPath)) {
+  let nsisContent = fs.readFileSync(nsisPath, "utf8");
 
-fs.writeFileSync(nsisVersionFile, nsisContent);
-console.log("✅ src-tauri/version.nsh generated");
+  const regex = /!define PRODUCT_VERSION ".*"/;
+
+  if (regex.test(nsisContent)) {
+    nsisContent = nsisContent.replace(
+      regex,
+      `!define PRODUCT_VERSION "${version}"`
+    );
+    fs.writeFileSync(nsisPath, nsisContent);
+    console.log(`✅ src-tauri/installer.nsi updated to version ${version}`);
+  } else {
+    console.warn("⚠️  Could not find PRODUCT_VERSION line in installer.nsi");
+  }
+} else {
+  console.error("❌ installer.nsi not found!");
+}

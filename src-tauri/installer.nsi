@@ -2,8 +2,8 @@
 !include "FileFunc.nsh"
 
 !define PRODUCT_NAME "RBW-Tech OVPN"
+!define PRODUCT_VERSION "0.0.0"
 !define MAIN_BINARY "rbw-vpn-client.exe"
-!include "version.nsh"
 
 Name "${PRODUCT_NAME}"
 InstallDir "$PROGRAMFILES64\${PRODUCT_NAME}"

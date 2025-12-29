@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "sync-version": "node sync-version.cjs",
-    "version": "npm run sync-version && git add src-tauri/tauri.conf.json src-tauri/version.nsh",
+    "version": "npm run sync-version && git add src-tauri/tauri.conf.json src-tauri/installer.nsi",
     "tauri": "npm run sync-version && tauri"
   },
   "dependencies": {
